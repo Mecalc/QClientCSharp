@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "QClient", "QClient.csproj", "{491446DC-B6D9-4388-A531-C5C0783BBA1C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "QProtocol", "QProtocolCSharp\QProtocol.csproj", "{A7F435F1-C552-4F70-927A-F5776F68EC32}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{491446DC-B6D9-4388-A531-C5C0783BBA1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{491446DC-B6D9-4388-A531-C5C0783BBA1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{491446DC-B6D9-4388-A531-C5C0783BBA1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{491446DC-B6D9-4388-A531-C5C0783BBA1C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7F435F1-C552-4F70-927A-F5776F68EC32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7F435F1-C552-4F70-927A-F5776F68EC32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7F435F1-C552-4F70-927A-F5776F68EC32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7F435F1-C552-4F70-927A-F5776F68EC32}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E08A6CA9-D055-46C8-9EC6-934388821A22}
+	EndGlobalSection
+EndGlobal

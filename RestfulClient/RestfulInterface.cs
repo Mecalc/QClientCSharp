@@ -2,184 +2,219 @@
 // Copyright (c) Mecalc (Pty) Limited. All rights reserved.
 // -------------------------------------------------------------------------
 
-using QProtocol.ErrorHandling;
+using QClient.ErrorHandling;
 using QProtocol.Interfaces;
 using System.Text;
 using System.Text.Json;
 
-namespace QProtocolExtended.RestfulClient;
-
-public class RestfulInterface : IRestfulInterface
+namespace QClient.RestfulClient
 {
-    private const int timeout = 60;
-    private JsonElementToInferredTypesConverter customConverter = new();
-    private JsonSerializerOptions serializerOptions = new();
-
-    public string Url { get; }
-
-    public static HttpClient Client { get; internal set; } = new() { Timeout = new TimeSpan(0, 0, timeout) };
-
-    public string? LastResponse { get; internal set; }
-
-    public RestfulInterface(string url)
+    /// <summary>
+    /// This class will establish the HTTP connection to the QServer and provide the actions available.
+    /// </summary>
+    public class RestfulInterface : IRestfulInterface
     {
-        if (string.IsNullOrEmpty(url))
+        private const int timeout = 60;
+        private JsonElementToInferredTypesConverter customConverter = new();
+        private JsonSerializerOptions serializerOptions = new();
+
+        public static HttpClient Client { get; internal set; } = new() { Timeout = new TimeSpan(0, 0, timeout) };
+
+        /// <summary>
+        /// Gets the URL provided for this instance of the <see cref="RestfulInterface"/>.
+        /// </summary>
+        public string Url { get; }
+
+        /// <summary>
+        /// Gets the last response received from the QServer.
+        /// </summary>
+        public string? LastResponse { get; internal set; }
+
+        /// <summary>
+        /// Creates a new instance of the <see cref="RestfulInterface"/> class.
+        /// </summary>
+        /// <param name="url">Provide the URL used to connect to the QServer.</param>
+        /// <exception cref="ArgumentException">Thrown when the URL is null or empty.</exception>
+        public RestfulInterface(string url)
         {
-            throw new ArgumentException($"Argument {nameof(url)} may not be null or empty!");
+            ArgumentException.ThrowIfNullOrEmpty(nameof(url));
+
+            Url = url;
+            serializerOptions.Converters.Add(customConverter);
         }
 
-        Url = url;
-        serializerOptions.Converters.Add(customConverter);
-    }
-
-    public virtual void Put(string request, params HttpParameter[] parameters)
-    {
-        Put(request, body: null, parameters: parameters);
-    }
-
-    public virtual void Put(string request, object body, params HttpParameter[] parameters)
-    {
-        var buildUri = new StringBuilder();
-        buildUri.Append(Url);
-        buildUri.Append(request);
-        if (parameters != null && parameters.Length > 0)
+        /// <summary>
+        /// Sends a Put request to the QServer with the specified endpoint and parameters.
+        /// </summary>
+        /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
+        /// <param name="parameters">Specify the parameters if applicable.</param>
+        public virtual void Put(string endpoint, params HttpParameter[] parameters)
         {
-            buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
+            Put(endpoint, body: null, parameters: parameters);
         }
 
-        var jsonBody = JsonSerializer.Serialize(body);
-        var httpJsonBody = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-        try
+        /// <summary>
+        /// Sends a Put request to the QServer with the specified endpoint and parameters.
+        /// </summary>
+        /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
+        /// <param name="body">Specify a body for the request.</param>
+        /// <param name="parameters">Specify the parameters if applicable.</param>
+        public virtual void Put(string endpoint, object body, params HttpParameter[] parameters)
         {
-            using var httpResponse = Client.PutAsync(buildUri.ToString(), httpJsonBody).Result;
-            LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
-
-            if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+            var buildUri = new StringBuilder();
+            buildUri.Append(Url);
+            buildUri.Append(endpoint);
+            if (parameters != null && parameters.Length > 0)
             {
-                throw new ApplicationException($"PUT command failed: {request} with error message: {LastResponse}");
+                buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
             }
 
-            QProtocolResponseChecks.CheckAndThrow(LastResponse);
-        }
-        catch (AggregateException info)
-        {
-            if (info.InnerException is TaskCanceledException canceledException)
-            {
-                throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
-            }
-            else
-            {
-                throw info.InnerException;
-            }
-        }
-    }
+            var jsonBody = JsonSerializer.Serialize(body);
+            var httpJsonBody = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
-    public virtual T Get<T>(string request, params HttpParameter[] parameters)
-    {
-        var buildUri = new StringBuilder();
-        buildUri.Append(Url);
-        buildUri.Append(request);
-        if (parameters != null && parameters.Length > 0)
-        {
-            buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
-        }
-
-        try
-        {
-            using var httpResponse = Client.GetAsync(buildUri.ToString()).Result;
-            LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
-
-            if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+            try
             {
-                throw new ApplicationException($"GET command failed: {request} with error message: {LastResponse}");
+                using var httpResponse = Client.PutAsync(buildUri.ToString(), httpJsonBody).Result;
+                LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+                {
+                    throw new ApplicationException($"PUT command failed: {endpoint} with error message: {LastResponse}");
+                }
+
+                QProtocolResponseChecks.CheckAndThrow(LastResponse);
             }
-
-            QProtocolResponseChecks.CheckAndThrow(LastResponse);
-            return JsonSerializer.Deserialize<T>(LastResponse, serializerOptions)!;
-        }
-        catch (AggregateException info)
-        {
-            if (info.InnerException is TaskCanceledException canceledException)
+            catch (AggregateException info)
             {
-                throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
-            }
-            else
-            {
-                throw info.InnerException;
+                if (info.InnerException is TaskCanceledException canceledException)
+                {
+                    throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                }
+                else
+                {
+                    throw info.InnerException;
+                }
             }
         }
-    }
 
-    public virtual void Delete(string request, params HttpParameter[] parameters)
-    {
-        var buildUri = new StringBuilder();
-        buildUri.Append(Url);
-        buildUri.Append(request);
-        if (parameters != null && parameters.Length > 0)
+        /// <summary>
+        /// Sends a Get requests to the QServer with the specified endpoint and parameters.
+        /// </summary>
+        /// <typeparam name="T">Specify a Type to which the response will be casted to.</typeparam>
+        /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
+        /// <param name="parameters">Specify the parameters if applicable.</param>
+        /// <returns>An instance of the Type specified.</returns>
+        public virtual T Get<T>(string endpoint, params HttpParameter[] parameters)
         {
-            buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
-        }
-
-        try
-        {
-            using var httpResponse = Client.DeleteAsync(buildUri.ToString()).Result;
-            LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
-
-            if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+            var buildUri = new StringBuilder();
+            buildUri.Append(Url);
+            buildUri.Append(endpoint);
+            if (parameters != null && parameters.Length > 0)
             {
-                throw new ApplicationException($"DELETE command failed: {request} with error message: {LastResponse}");
+                buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
             }
 
-            QProtocolResponseChecks.CheckAndThrow(LastResponse);
-        }
-        catch (AggregateException info)
-        {
-            if (info.InnerException is TaskCanceledException canceledException)
+            try
             {
-                throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                using var httpResponse = Client.GetAsync(buildUri.ToString()).Result;
+                LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+                {
+                    throw new ApplicationException($"GET command failed: {endpoint} with error message: {LastResponse}");
+                }
+
+                QProtocolResponseChecks.CheckAndThrow(LastResponse);
+                return JsonSerializer.Deserialize<T>(LastResponse, serializerOptions)!;
             }
-            else
+            catch (AggregateException info)
             {
-                throw info.InnerException;
+                if (info.InnerException is TaskCanceledException canceledException)
+                {
+                    throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                }
+                else
+                {
+                    throw info.InnerException;
+                }
             }
         }
-    }
 
-    private bool IsSupportedStatusCode(System.Net.HttpStatusCode receivedCode)
-    {
-        switch (receivedCode)
+        /// <summary>
+        /// Sends a Delete request to the QServer with the specified endpoint and parameters.
+        /// </summary>
+        /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
+        /// <param name="parameters">Specify the parameters if applicable.</param>
+        public virtual void Delete(string endpoint, params HttpParameter[] parameters)
         {
-            case System.Net.HttpStatusCode.OK:
-            case System.Net.HttpStatusCode.NoContent:
-            case System.Net.HttpStatusCode.BadRequest:
-            case System.Net.HttpStatusCode.NotFound:
-            case System.Net.HttpStatusCode.MethodNotAllowed:
-            case System.Net.HttpStatusCode.InternalServerError:
-            case System.Net.HttpStatusCode.NotImplemented:
-                return true;
-            default:
-                return false;
+            var buildUri = new StringBuilder();
+            buildUri.Append(Url);
+            buildUri.Append(endpoint);
+            if (parameters != null && parameters.Length > 0)
+            {
+                buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
+            }
+
+            try
+            {
+                using var httpResponse = Client.DeleteAsync(buildUri.ToString()).Result;
+                LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+                {
+                    throw new ApplicationException($"DELETE command failed: {endpoint} with error message: {LastResponse}");
+                }
+
+                QProtocolResponseChecks.CheckAndThrow(LastResponse);
+            }
+            catch (AggregateException info)
+            {
+                if (info.InnerException is TaskCanceledException canceledException)
+                {
+                    throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                }
+                else
+                {
+                    throw info.InnerException;
+                }
+            }
         }
-    }
 
-    public void Dispose()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
+        private bool IsSupportedStatusCode(System.Net.HttpStatusCode receivedCode)
         {
+            switch (receivedCode)
+            {
+                case System.Net.HttpStatusCode.OK:
+                case System.Net.HttpStatusCode.NoContent:
+                case System.Net.HttpStatusCode.BadRequest:
+                case System.Net.HttpStatusCode.NotFound:
+                case System.Net.HttpStatusCode.MethodNotAllowed:
+                case System.Net.HttpStatusCode.InternalServerError:
+                case System.Net.HttpStatusCode.NotImplemented:
+                    return true;
+                default:
+                    return false;
+            }
         }
-    }
 
-    ~RestfulInterface()
-    {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        Dispose(disposing: false);
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+            }
+        }
+
+        ~RestfulInterface()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
+        }
     }
 }
