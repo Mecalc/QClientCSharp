@@ -14,9 +14,9 @@ namespace QClient.RestfulClient
     /// </summary>
     public class RestfulInterface : IRestfulInterface
     {
-        private const int timeout = 60;
-        private JsonElementToInferredTypesConverter customConverter = new();
-        private JsonSerializerOptions serializerOptions = new();
+        private const int timeout = 150;
+        private readonly JsonElementToInferredTypesConverter customConverter = new();
+        private readonly JsonSerializerOptions serializerOptions = new();
 
         public static HttpClient Client { get; internal set; } = new() { Timeout = new TimeSpan(0, 0, timeout) };
 
@@ -37,7 +37,7 @@ namespace QClient.RestfulClient
         /// <exception cref="ArgumentException">Thrown when the URL is null or empty.</exception>
         public RestfulInterface(string url)
         {
-            ArgumentException.ThrowIfNullOrEmpty(nameof(url));
+            ArgumentNullException.ThrowIfNull(nameof(url));
 
             Url = url;
             serializerOptions.Converters.Add(customConverter);
@@ -54,12 +54,55 @@ namespace QClient.RestfulClient
         }
 
         /// <summary>
+        /// Sends a Put request to the QServer with the specified endpoint and parameters
+        /// </summary>
+        /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
+        /// <param name="parameters">Specify the parameters if applicable.</param>
+        public virtual T Put<T>(string endpoint, params HttpParameter[] parameters)
+        {
+            var buildUri = new StringBuilder();
+            buildUri.Append(Url);
+            buildUri.Append(endpoint);
+            if (parameters != null && parameters.Length > 0)
+            {
+                buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
+            }
+
+            try
+            {
+                using var httpResponse = Client.PutAsync(buildUri.ToString(), null).Result;
+                LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+                {
+                    throw new ApplicationException($"GET command failed: {endpoint} with error message: {LastResponse}");
+                }
+
+                QProtocolResponseChecks.CheckAndThrow(LastResponse);
+                return JsonSerializer.Deserialize<T>(LastResponse, serializerOptions)!;
+            }
+            catch (AggregateException info)
+            {
+                if (info.InnerException is TaskCanceledException canceledException)
+                {
+                    throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                }
+                else if (info.InnerException != null)
+                {
+                    throw info.InnerException;
+                }
+
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Sends a Put request to the QServer with the specified endpoint and parameters.
         /// </summary>
         /// <param name="endpoint">Specify the endpoint to be used for the request.</param>
         /// <param name="body">Specify a body for the request.</param>
         /// <param name="parameters">Specify the parameters if applicable.</param>
-        public virtual void Put(string endpoint, object body, params HttpParameter[] parameters)
+        public virtual void Put(string endpoint, object? body, params HttpParameter[] parameters)
         {
             var buildUri = new StringBuilder();
             buildUri.Append(Url);
@@ -90,10 +133,53 @@ namespace QClient.RestfulClient
                 {
                     throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
                 }
-                else
+                else if (info.InnerException != null)
                 {
                     throw info.InnerException;
                 }
+
+                throw;
+            }
+        }
+
+        public T Post<T>(string endpoint, object body, params HttpParameter[] parameters)
+        {
+            var buildUri = new StringBuilder();
+            buildUri.Append(Url);
+            buildUri.Append(endpoint);
+            if (parameters != null && parameters.Length > 0)
+            {
+                buildUri.Append($"?{string.Join("&", parameters.Select(item => $"{item.Name}={item.Value}"))}");
+            }
+
+            var jsonBody = JsonSerializer.Serialize(body);
+            var httpJsonBody = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+            try
+            {
+                using var httpResponse = Client.PostAsync(buildUri.ToString(), httpJsonBody).Result;
+                LastResponse = httpResponse.Content.ReadAsStringAsync().Result;
+
+                if (IsSupportedStatusCode(httpResponse.StatusCode) == false)
+                {
+                    throw new ApplicationException($"PUT command failed: {endpoint} with error message: {LastResponse}");
+                }
+                
+                QProtocolResponseChecks.CheckAndThrow(LastResponse);
+                return JsonSerializer.Deserialize<T>(LastResponse, serializerOptions)!;
+            }
+            catch (AggregateException info)
+            {
+                if (info.InnerException is TaskCanceledException canceledException)
+                {
+                    throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
+                }
+                else if (info.InnerException != null)
+                {
+                    throw info.InnerException;
+                }
+
+                throw;
             }
         }
 
@@ -133,10 +219,12 @@ namespace QClient.RestfulClient
                 {
                     throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
                 }
-                else
+                else if (info.InnerException != null)
                 {
                     throw info.InnerException;
                 }
+
+                throw;
             }
         }
 
@@ -173,10 +261,12 @@ namespace QClient.RestfulClient
                 {
                     throw new TimeoutException($"Unable to reach the QServer on the provided URL {Url}.");
                 }
-                else
+                else if (info.InnerException != null)
                 {
                     throw info.InnerException;
                 }
+
+                throw;
             }
         }
 
